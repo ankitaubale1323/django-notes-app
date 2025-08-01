@@ -3,6 +3,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .serializers import NoteSerializer
 from .models import Note
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json
 
 # Create your views here.
 
@@ -76,3 +79,14 @@ def createNote(request):
     )
     serializer = NoteSerializer(note, many=False)
     return Response(serializer.data)
+
+@csrf_exempt
+def github_webhook(request):
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+            print("✅ GitHub Webhook Received:", payload)  # This will print in logs
+            return JsonResponse({'status': 'Webhook received!'})
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
