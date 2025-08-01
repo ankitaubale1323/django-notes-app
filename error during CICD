@@ -1,0 +1,216 @@
+Here’s a full `README.md` you can directly copy and paste into your repository 👇
+It explains how to run the project, fix the DB error, and set up everything clearly.
+
+---
+
+````markdown
+# 📝 Django Notes App (CI/CD with Jenkins + Docker)
+
+A Django-based notes-taking application with REST API support. This project is configured for CI/CD using Jenkins and Docker.
+
+---
+
+## 🚀 Getting Started
+
+### 📦 Requirements
+
+- Ubuntu EC2 Instance (or any Linux server)
+- Docker & Docker Compose
+- Jenkins (for CI/CD)
+- MySQL server installed on the host machine (or use Docker)
+
+---
+
+## ⚠️ Common Error
+
+If you see this error in logs:
+
+```bash
+django.db.utils.OperationalError: (2002, "Can't connect to server on '172.31.xx.xx' (115)")
+````
+
+### 🔍 Reason:
+
+Your Django container cannot connect to the MySQL server because:
+
+* MySQL is not installed or running.
+* MySQL is bound to `127.0.0.1` (local only), not `0.0.0.0`.
+* Database credentials are not provided via environment variables.
+
+---
+
+## ✅ How to Fix It
+
+### 🔧 Step 1: Install MySQL
+
+```bash
+sudo apt update
+sudo apt install mysql-server
+```
+
+---
+
+### 🔧 Step 2: Allow MySQL External Access
+
+Edit:
+
+```bash
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+```
+
+Update this line:
+
+```ini
+bind-address = 127.0.0.1
+```
+
+To:
+
+```ini
+bind-address = 0.0.0.0
+```
+
+Then restart MySQL:
+
+```bash
+sudo systemctl restart mysql
+```
+
+---
+
+### 🔧 Step 3: Create Database and User
+
+```bash
+sudo mysql -u root
+```
+
+Inside MySQL shell:
+
+```sql
+CREATE DATABASE `note-app-db`;
+CREATE USER 'root'@'%' IDENTIFIED BY 'root';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+---
+
+### 🐳 Step 4: Run Docker Container
+
+Replace `<YOUR-PRIVATE-IP>` with the IP of your EC2 or host machine (e.g. `172.31.xx.xx`):
+
+```bash
+docker run -d \
+  --name notes-app-container \
+  -e DB_NAME=note-app-db \
+  -e DB_USER=root \
+  -e DB_PASSWORD=root \
+  -e DB_HOST=<YOUR-PRIVATE-IP> \
+  -e DB_PORT=3306 \
+  -p 8000:8000 \
+  notes-app:latest
+```
+
+---
+
+## 🌐 Access the App
+
+Visit:
+
+```url
+http://<your-ec2-public-ip>:8000
+```
+
+---
+
+## 🛠 Why Use Environment Variables?
+
+We keep DB credentials and other config outside of source code.
+These are injected into the container and used in `settings.py` like:
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv("DB_NAME"),
+        'USER': os.getenv("DB_USER"),
+        'PASSWORD': os.getenv("DB_PASSWORD"),
+        'HOST': os.getenv("DB_HOST"),
+        'PORT': os.getenv("DB_PORT"),
+    }
+}
+```
+
+---
+
+## 🧪 CI/CD Pipeline Sample (Jenkins)
+
+```groovy
+pipeline {
+    agent { label 'web' }
+
+    environment {
+        IMAGE_NAME = 'notes-app:latest'
+        CONTAINER_NAME = 'notes-app-container'
+        DB_NAME = 'note-app-db'
+        DB_USER = 'root'
+        DB_PASSWORD = 'root'
+        DB_HOST = '172.31.xx.xx'  // your EC2 private IP
+        DB_PORT = '3306'
+    }
+
+    stages {
+        stage('Clone Code') {
+            steps {
+                git url: 'https://github.com/ankitaubale1323/django-notes-app.git', branch: 'main'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${IMAGE_NAME} ."
+            }
+        }
+
+        stage('Deploy Container') {
+            steps {
+                sh """
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+
+                    docker run -d \\
+                      --name ${CONTAINER_NAME} \\
+                      -e DB_NAME=${DB_NAME} \\
+                      -e DB_USER=${DB_USER} \\
+                      -e DB_PASSWORD=${DB_PASSWORD} \\
+                      -e DB_HOST=${DB_HOST} \\
+                      -e DB_PORT=${DB_PORT} \\
+                      -p 8000:8000 \\
+                      ${IMAGE_NAME}
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Deployment successful. Visit the app at http://<EC2-IP>:8000'
+        }
+        failure {
+            echo '❌ Deployment failed. Check Jenkins logs for details.'
+        }
+    }
+}
+```
+
+---
+
+## 🙋‍♀️ Need Help?
+
+Open an issue or reach out!
+
+---
+
+```
+
