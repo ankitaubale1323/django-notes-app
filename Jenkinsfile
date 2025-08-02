@@ -14,8 +14,16 @@ pipeline {
     }
 
     stages {
+         stage('Display') {
+
+            steps {
+            echo" script is running"
+              }
+            }
+        
         
         stage('Clone Repository') {
+
             steps {
               script{
                      clone ("https://github.com/ankitaubale1323/django-notes-app.git", "main")
