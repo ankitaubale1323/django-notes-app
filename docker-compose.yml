@@ -67,10 +67,10 @@ services:
     depends_on:
       - django_app
     restart: always
-    networks:
-      - notes-app-nw
     volumes:
       - static_volume:/app/static
+    networks:
+      - notes-app-nw
 
   django_app:
     build:
@@ -78,8 +78,10 @@ services:
     image: ankitaubale1323/notes-app:latest
     container_name: django_cont
     command: >
-      sh -c "python manage.py migrate --noinput &&
-             gunicorn notesapp.wsgi:application --bind 0.0.0.0:8000"
+      sh -c "
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate --noinput &&
+      gunicorn notesapp.wsgi:application --bind 0.0.0.0:8000"
     env_file:
       - .env
     restart: always
@@ -99,12 +101,14 @@ services:
       start_period: 30s
 
   db:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: db_cont
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: test_db
+      MYSQL_DATABASE: note-app-db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
     volumes:
       - ./data/mysql:/var/lib/mysql
     networks:
